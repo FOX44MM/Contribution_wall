@@ -34,6 +34,11 @@
             color: white;
         }
 
+        #minusContribution {
+            background-color: #bf38a8;
+            color: white;
+        }
+
         #clearData {
             background-color: #f44336;
             color: white;
@@ -110,18 +115,21 @@
 </head>
 <body>
 <h1>贡献图</h1>
+
 <div id="controls">
-    <button id="addContribution">添加今日贡献</button>
-    <button id="clearData">清除数据</button>
-    <button id="exportData">导出数据</button>
-    <button id="importData">导入数据</button>
+    <button id="addContribution">+1</button>
+    <button id="minusContribution">-1</button>
+    <button id="clearData">清除</button>
+    <button id="exportData">导出</button>
+    <button id="importData">导入</button>
     <input type="file" id="importInput" accept="application/json">
+    <br>
     <label>
         <input type="checkbox" id="toggleSplitLine">
         <span id="showSplitLineLabel">显示每月分割线</span>
     </label>
     <label>
-        <span id="colorSchemeLabel">配色方案：</span>
+        <span id="colorSchemeLabel">配色方案:</span>
         <select id="colorSchemeSelect"></select>
     </label>
 </div>
@@ -129,27 +137,32 @@
 <div id="stats"></div>
 
 <div id="descriptionContainer">
-    <textarea id="descriptionText" ></textarea>
+    <textarea id="descriptionText"></textarea>
     <button id="saveDescription">保存描述</button>
 </div>
 
 <script>
-    const STORAGE_KEY = 'githubContributionData';
-    const SETTINGS_KEY = 'githubContributionSettings';
+
+    const STORAGE_KEY = 'githubContributionData';   // 存储数据
+    const SETTINGS_KEY = 'githubContributionSettings';//    存储设置
     const DESCRIPTION_KEY = 'githubDescription';  // 新增：保存描述的键
 
+    //  配色
     const colorSchemes = {
-        "默认": ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
+        "绿色": ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
         "蓝色": ['#ebf5fb', '#aed6f1', '#5dade2', '#2e86c1', '#1b4f72'],
         "红色": ['#fdecea', '#f5b7b1', '#ec7063', '#cb4335', '#641e16'],
         "紫色": ['#f5eef8', '#d7bde2', '#af7ac5', '#884ea0', '#4a235a']
     };
 
+
+    // 默认设置
     const defaultSettings = {
-        showSplitLine: true,
-        colorScheme: "默认"
+        showSplitLine: true,    //  是否显示日历图月份分割线
+        colorScheme: "绿色"   //  默认的配色
     };
 
+    //  加载设置，如果配置存在，则加载，如果没有，则使用默认配置
     function loadSettings() {
         const savedSettings = localStorage.getItem(SETTINGS_KEY);
         return savedSettings ? JSON.parse(savedSettings) : defaultSettings;
@@ -190,6 +203,8 @@
         }
     }
 
+
+    //  导出数据
     function exportData() {
         const data = localStorage.getItem(STORAGE_KEY);
         if (!data) return alert('没有数据可导出！');
@@ -202,6 +217,7 @@
         document.body.removeChild(link);
     }
 
+    // 导入数据
     function importData() {
         const fileInput = document.getElementById('importInput');
         fileInput.click();
@@ -263,7 +279,7 @@
         const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
         let statsHTML = '<table><tr><th>月份</th>';
         monthNames.forEach(month => statsHTML += `<th>${month}</th>`);
-        statsHTML += '<th>总计</th></tr><tr><td>贡献数</td>';
+        statsHTML += '<th>总计</th></tr><tr><td>次数</td>';
         monthlyTotals.forEach(total => statsHTML += `<td>${total}</td>`);
         statsHTML += `<td>${total}</td></tr></table>`;
         document.getElementById('stats').innerHTML = statsHTML;
@@ -272,7 +288,7 @@
     function renderChart(showSplitLine, colorScheme) {
         chart.setOption({
             tooltip: {
-                formatter: ({value}) => `${value[0]}<br/>贡献数: ${value[1]}<br/>点击修改贡献`
+                formatter: ({value}) => `${value[0]}<br/>当日次数: ${value[1]}<br/>点击修改`
             },
             visualMap: {
                 min: 0,
@@ -320,6 +336,21 @@
         const index = data.findIndex(([date]) => date === today);
         if (index !== -1) {
             data[index][1] = Math.min(data[index][1] + 1, 10);
+            saveData(data);
+            renderChart(settings.showSplitLine, settings.colorScheme);
+        } else {
+            alert('今天不在日期范围内！');
+        }
+    });
+    document.getElementById('minusContribution').addEventListener('click', () => {
+        const today = new Date().toISOString().split('T')[0];
+        const index = data.findIndex(([date]) => date === today);
+        if (index !== -1) {
+            if (data[index][1] <= 0){
+                alert("无法执行此操作");
+                return;
+            }
+            data[index][1] = Math.min(data[index][1] - 1, 10);
             saveData(data);
             renderChart(settings.showSplitLine, settings.colorScheme);
         } else {
