@@ -10,13 +10,16 @@
             text-align: center;
             margin-top: 20px;
         }
+
         h1 {
             font-size: 32px;
             margin-bottom: 10px;
         }
+
         #controls {
             margin-bottom: 20px;
         }
+
         button, select {
             padding: 10px 20px;
             font-size: 16px;
@@ -25,38 +28,83 @@
             border-radius: 8px;
             cursor: pointer;
         }
+
         #addContribution {
             background-color: #4CAF50;
             color: white;
         }
-        #addContribution:hover {
-            background-color: #45a049;
-        }
+
         #clearData {
             background-color: #f44336;
             color: white;
         }
-        #clearData:hover {
-            background-color: #d32f2f;
-        }
+
         #importData, #exportData {
             background-color: #2196F3;
             color: white;
         }
-        #importData:hover, #exportData:hover {
-            background-color: #1976D2;
+
+        button:hover {
+            opacity: 0.85;
         }
+
         #showSplitLineLabel, #colorSchemeLabel {
             font-size: 14px;
             margin-left: 8px;
         }
+
         #chart {
             width: 90%;
-            height: 600px;
+            height: 300px;
             margin: auto;
         }
+        textarea{
+            font-family: "微软雅黑",serif;
+        }
+        #stats {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        #stats table {
+            width: 80%;
+            margin: 10px auto;
+            border-collapse: collapse;
+        }
+
+        #stats th, #stats td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        #stats th {
+            background-color: #f2f2f2;
+        }
+
         input[type="file"] {
             display: none;
+        }
+
+        #descriptionContainer {
+            margin-top: 20px;
+        }
+
+        #descriptionText {
+            width: 80%;
+            height: 100px;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        #saveDescription {
+            margin-top: 10px;
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
         }
     </style>
 </head>
@@ -78,10 +126,17 @@
     </label>
 </div>
 <div id="chart"></div>
+<div id="stats"></div>
+
+<div id="descriptionContainer">
+    <textarea id="descriptionText" ></textarea>
+    <button id="saveDescription">保存描述</button>
+</div>
 
 <script>
     const STORAGE_KEY = 'githubContributionData';
     const SETTINGS_KEY = 'githubContributionSettings';
+    const DESCRIPTION_KEY = 'githubDescription';  // 新增：保存描述的键
 
     const colorSchemes = {
         "默认": ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
@@ -138,7 +193,7 @@
     function exportData() {
         const data = localStorage.getItem(STORAGE_KEY);
         if (!data) return alert('没有数据可导出！');
-        const blob = new Blob([data], { type: 'application/json' });
+        const blob = new Blob([data], {type: 'application/json'});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = 'github_contribution_data.json';
@@ -192,10 +247,32 @@
     const year = new Date().getFullYear().toString();
     const data = loadData(year);
 
+    function calculateStats(data) {
+        const monthlyTotals = Array(12).fill(0);
+        let total = 0;
+        data.forEach(([date, count]) => {
+            const month = new Date(date).getMonth();
+            monthlyTotals[month] += count;
+            total += count;
+        });
+        return {monthlyTotals, total};
+    }
+
+    function renderStats(data) {
+        const {monthlyTotals, total} = calculateStats(data);
+        const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+        let statsHTML = '<table><tr><th>月份</th>';
+        monthNames.forEach(month => statsHTML += `<th>${month}</th>`);
+        statsHTML += '<th>总计</th></tr><tr><td>贡献数</td>';
+        monthlyTotals.forEach(total => statsHTML += `<td>${total}</td>`);
+        statsHTML += `<td>${total}</td></tr></table>`;
+        document.getElementById('stats').innerHTML = statsHTML;
+    }
+
     function renderChart(showSplitLine, colorScheme) {
         chart.setOption({
             tooltip: {
-                formatter: ({ value }) => `${value[0]}<br/>贡献数: ${value[1]}<br/>点击修改贡献`
+                formatter: ({value}) => `${value[0]}<br/>贡献数: ${value[1]}<br/>点击修改贡献`
             },
             visualMap: {
                 min: 0,
@@ -204,33 +281,39 @@
                 orient: 'horizontal',
                 left: 'center',
                 bottom: '15px',
-                inRange: {
-                    color: colorSchemes[colorScheme] || colorSchemes["默认"]
-                }
+                inRange: {color: colorSchemes[colorScheme] || colorSchemes["默认"]}
             },
             calendar: {
                 top: '60px',
                 left: 'center',
                 range: year,
                 cellSize: ['auto', 22],
-                itemStyle: {
-                    borderRadius: 6
-                },
-                splitLine: {
-                    show: showSplitLine,
-                    lineStyle: { color: '#999', width: 1, type: 'solid' }
-                },
-                yearLabel: { show: true, margin: 40 },
-                monthLabel: { nameMap: 'cn' },
-                dayLabel: { firstDay: 1, nameMap: 'cn' }
+                itemStyle: {borderRadius: 6},
+                splitLine: {show: showSplitLine, lineStyle: {color: '#999', width: 1, type: 'solid'}},
+                yearLabel: {show: true, margin: 40},
+                monthLabel: {nameMap: 'cn'},
+                dayLabel: {firstDay: 1, nameMap: 'cn'}
             },
-            series: [{
-                type: 'heatmap',
-                coordinateSystem: 'calendar',
-                data
-            }]
+            series: [{type: 'heatmap', coordinateSystem: 'calendar', data}],
         });
+        renderStats(data);
     }
+
+    // 处理描述文本的加载与保存
+    function loadDescription() {
+        const savedDescription = localStorage.getItem(DESCRIPTION_KEY);
+        if (savedDescription) {
+            document.getElementById('descriptionText').value = savedDescription;
+        }
+    }
+
+    function saveDescription() {
+        const description = document.getElementById('descriptionText').value;
+        localStorage.setItem(DESCRIPTION_KEY, description);
+        alert('描述已保存！');
+    }
+
+    document.getElementById('saveDescription').addEventListener('click', saveDescription);
 
     document.getElementById('addContribution').addEventListener('click', () => {
         const today = new Date().toISOString().split('T')[0];
@@ -255,7 +338,7 @@
         renderChart(settings.showSplitLine, settings.colorScheme);
     });
 
-    chart.on('click', ({ value }) => {
+    chart.on('click', ({value}) => {
         const [date, currentContribution] = value;
         const newContribution = prompt(`修改 ${date} 的贡献数 (0-10)：`, currentContribution);
         if (newContribution !== null) {
@@ -275,6 +358,7 @@
 
     populateColorSchemeSelect();
     renderChart(settings.showSplitLine, settings.colorScheme);
+    loadDescription();
 </script>
 </body>
 </html>
