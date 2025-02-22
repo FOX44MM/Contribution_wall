@@ -54,7 +54,7 @@
         }
 
         #showSplitLineLabel, #colorSchemeLabel {
-            font-size: 14px;
+            /*font-size: 14px;*/
             margin-left: 8px;
         }
 
@@ -128,11 +128,11 @@
 
 <br>
 <div id="controls">
-    <button id="addContribution">+1</button>
-    <button id="minusContribution">-1</button>
-    <button id="clearData">清除</button>
-    <button id="exportData">导出</button>
-    <button id="importData">导入</button>
+    <button id="addContribution">增加</button>
+    <button id="minusContribution">减去</button>
+    <button id="clearData">清除数据</button>
+    <button id="exportData">导出数据</button>
+    <button id="importData">导入数据</button>
     <input type="file" id="importInput" accept="application/json">
     <br><br>
 
@@ -386,6 +386,7 @@
     // 监听输入框的变化并更新上限
     document.getElementById('limit').addEventListener('input', function (event) {
         LIMIT = event.target.value;
+        renderChart(settings.showSplitLine, settings.colorScheme)
         // 更新 localStorage 中保存的上限值
         localStorage.setItem('githubContributionLimit', LIMIT);
     });
