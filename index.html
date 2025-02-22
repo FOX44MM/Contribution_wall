@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>贡献图</title>
-    <script src="echarts.js"></script>
+    <script src="echarts.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -121,10 +121,27 @@
         #limit {
             width: 60px;
         }
+
+        /* 新增样式：右下角的复选框 */
+        #advancedSettings {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #fff;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .advanced {
+            display: none;
+        }
+
     </style>
 </head>
 <body>
-<h1>标题</h1>
+<h1 id="title">标题</h1>
 
 <br>
 <div id="controls">
@@ -144,10 +161,17 @@
         <span id="colorSchemeLabel">配色方案:</span>
         <select id="colorSchemeSelect"></select>
     </label>
-    <label>
-        <span>每日上限:</span>
-        <input type="number" min="1" id="limit">
-    </label>
+
+
+    <div class="advanced">
+        <br>
+        <h3>高级设置</h3>
+        <label>
+            <span>每日上限:</span>
+            <input type="number" min="1" id="limit">
+        </label>
+        <button id="setTitle">设置标题</button>
+    </div>
 
 </div>
 <div id="chart"></div>
@@ -156,6 +180,13 @@
 <div id="descriptionContainer">
     <textarea id="descriptionText" placeholder="在这里写点什么吧！"></textarea>
     <button id="saveDescription">保存描述</button>
+</div>
+
+<div id="advancedSettings">
+    <label>
+        <input type="checkbox" id="toggleAdvancedSettings">
+        显示高级设置
+    </label>
 </div>
 
 <script>
@@ -332,6 +363,14 @@
         renderStats(data);
     }
 
+    // 加载标题
+    function loadTitle(){
+        const savedTitle = localStorage.getItem('Title');
+        if (savedTitle) {
+            document.getElementById('title').innerText = savedTitle;
+        }
+    }
+
     // 处理描述文本的加载与保存
     function loadDescription() {
         const savedDescription = localStorage.getItem(DESCRIPTION_KEY);
@@ -400,8 +439,27 @@
         }
     }
 
+    // 显示高级设置
+    document.getElementById('toggleAdvancedSettings').addEventListener('change', (event) => {
+        const advancedElements = document.getElementsByClassName('advanced');
+        if (event.target.checked) {
+            for (var advancedElement0 of advancedElements) {
+                advancedElement0.style.display = 'block'; // 显示高级设置
+            }
+        } else {
+            for (var advancedElement1 of advancedElements) {
+                advancedElement1.style.display = 'none';  // 隐藏高级设置
+            }
+        }
+    });
 
-
+    document.getElementById('setTitle').addEventListener('click', function() {
+        const newTitle = prompt("请输入新的标题：", document.getElementById('title').innerText);
+        if (newTitle !== null && newTitle.trim() !== "") {
+            document.getElementById('title').innerText = newTitle;
+            localStorage.setItem('Title', newTitle);
+        }
+    });
     // 修改贡献时，检查是否超过上限
     chart.on('click', ({value}) => {
         const [date, currentContribution] = value;
@@ -421,9 +479,12 @@
         }
     });
 
-    populateColorSchemeSelect();
-    renderChart(settings.showSplitLine, settings.colorScheme);
-    loadDescription();
+
+
+    loadTitle();
+    populateColorSchemeSelect();//颜色加载
+    renderChart(settings.showSplitLine, settings.colorScheme);//图标记载
+    loadDescription();//描述加载
     loadLimitSetting();
 </script>
 </body>
