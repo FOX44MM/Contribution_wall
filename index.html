@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>贡献图</title>
+    <script src="echarts.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        button, select {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        #addContribution {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #addContribution:hover {
+            background-color: #45a049;
+        }
+        #clearData {
+            background-color: #f44336;
+            color: white;
+        }
+        #clearData:hover {
+            background-color: #d32f2f;
+        }
+        #importData, #exportData {
+            background-color: #2196F3;
+            color: white;
+        }
+        #importData:hover, #exportData:hover {
+            background-color: #1976D2;
+        }
+        #showSplitLineLabel, #colorSchemeLabel {
+            font-size: 14px;
+            margin-left: 8px;
+        }
+        #chart {
+            width: 90%;
+            height: 600px;
+            margin: auto;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>贡献图</h1>
+<div id="controls">
+    <button id="addContribution">添加今日贡献</button>
+    <button id="clearData">清除数据</button>
+    <button id="exportData">导出数据</button>
+    <button id="importData">导入数据</button>
+    <input type="file" id="importInput" accept="application/json">
+    <label>
+        <input type="checkbox" id="toggleSplitLine">
+        <span id="showSplitLineLabel">显示每月分割线</span>
+    </label>
+    <label>
+        <span id="colorSchemeLabel">配色方案：</span>
+        <select id="colorSchemeSelect"></select>
+    </label>
+</div>
+<div id="chart"></div>
+
+<script>
+    const STORAGE_KEY = 'githubContributionData';
+    const SETTINGS_KEY = 'githubContributionSettings';
+
+    const colorSchemes = {
+        "默认": ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
+        "蓝色": ['#ebf5fb', '#aed6f1', '#5dade2', '#2e86c1', '#1b4f72'],
+        "红色": ['#fdecea', '#f5b7b1', '#ec7063', '#cb4335', '#641e16'],
+        "紫色": ['#f5eef8', '#d7bde2', '#af7ac5', '#884ea0', '#4a235a']
+    };
+
+    const defaultSettings = {
+        showSplitLine: true,
+        colorScheme: "默认"
+    };
+
+    function loadSettings() {
+        const savedSettings = localStorage.getItem(SETTINGS_KEY);
+        return savedSettings ? JSON.parse(savedSettings) : defaultSettings;
+    }
+
+    function saveSettings(settings) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    const settings = loadSettings();
+
+    const chart = echarts.init(document.getElementById('chart'));
+
+    function getDateRange(start, end) {
+        const dates = [];
+        let current = new Date(start);
+        const endDate = new Date(end);
+        while (current <= endDate) {
+            dates.push([current.toISOString().split('T')[0], 0]);
+            current.setDate(current.getDate() + 1);
+        }
+        return dates;
+    }
+
+    function loadData(year) {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        return savedData ? JSON.parse(savedData).filter(([date]) => date.startsWith(year)) : getDateRange(`${year}-01-01`, `${year}-12-31`);
+    }
+
+    function saveData(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function clearData() {
+        if (confirm('确定要清除所有贡献数据吗？此操作不可撤销！')) {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+        }
+    }
+
+    function exportData() {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (!data) return alert('没有数据可导出！');
+        const blob = new Blob([data], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'github_contribution_data.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function importData() {
+        const fileInput = document.getElementById('importInput');
+        fileInput.click();
+        fileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (Array.isArray(importedData) && importedData.every(([date, count]) => typeof date === 'string' && typeof count === 'number')) {
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(importedData));
+                            alert('数据导入成功！');
+                            location.reload();
+                        } else {
+                            alert('导入数据格式错误，请检查文件内容。');
+                        }
+                    } catch {
+                        alert('文件读取或解析失败，请提供有效的 JSON 文件。');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+    }
+
+    function populateColorSchemeSelect() {
+        const select = document.getElementById('colorSchemeSelect');
+        Object.keys(colorSchemes).forEach(scheme => {
+            const option = document.createElement('option');
+            option.value = scheme;
+            option.textContent = scheme;
+            if (scheme === settings.colorScheme) option.selected = true;
+            select.appendChild(option);
+        });
+        select.addEventListener('change', (e) => {
+            settings.colorScheme = e.target.value;
+            saveSettings(settings);
+            renderChart(settings.showSplitLine, settings.colorScheme);
+        });
+    }
+
+    const year = new Date().getFullYear().toString();
+    const data = loadData(year);
+
+    function renderChart(showSplitLine, colorScheme) {
+        chart.setOption({
+            tooltip: {
+                formatter: ({ value }) => `${value[0]}<br/>贡献数: ${value[1]}<br/>点击修改贡献`
+            },
+            visualMap: {
+                min: 0,
+                max: 10,
+                calculable: true,
+                orient: 'horizontal',
+                left: 'center',
+                bottom: '15px',
+                inRange: {
+                    color: colorSchemes[colorScheme] || colorSchemes["默认"]
+                }
+            },
+            calendar: {
+                top: '60px',
+                left: 'center',
+                range: year,
+                cellSize: ['auto', 22],
+                itemStyle: {
+                    borderRadius: 6
+                },
+                splitLine: {
+                    show: showSplitLine,
+                    lineStyle: { color: '#999', width: 1, type: 'solid' }
+                },
+                yearLabel: { show: true, margin: 40 },
+                monthLabel: { nameMap: 'cn' },
+                dayLabel: { firstDay: 1, nameMap: 'cn' }
+            },
+            series: [{
+                type: 'heatmap',
+                coordinateSystem: 'calendar',
+                data
+            }]
+        });
+    }
+
+    document.getElementById('addContribution').addEventListener('click', () => {
+        const today = new Date().toISOString().split('T')[0];
+        const index = data.findIndex(([date]) => date === today);
+        if (index !== -1) {
+            data[index][1] = Math.min(data[index][1] + 1, 10);
+            saveData(data);
+            renderChart(settings.showSplitLine, settings.colorScheme);
+        } else {
+            alert('今天不在日期范围内！');
+        }
+    });
+
+    document.getElementById('clearData').addEventListener('click', clearData);
+    document.getElementById('exportData').addEventListener('click', exportData);
+    document.getElementById('importData').addEventListener('click', importData);
+
+    document.getElementById('toggleSplitLine').checked = settings.showSplitLine;
+    document.getElementById('toggleSplitLine').addEventListener('change', (e) => {
+        settings.showSplitLine = e.target.checked;
+        saveSettings(settings);
+        renderChart(settings.showSplitLine, settings.colorScheme);
+    });
+
+    chart.on('click', ({ value }) => {
+        const [date, currentContribution] = value;
+        const newContribution = prompt(`修改 ${date} 的贡献数 (0-10)：`, currentContribution);
+        if (newContribution !== null) {
+            const parsedValue = parseInt(newContribution, 10);
+            if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 10) {
+                const index = data.findIndex(([d]) => d === date);
+                if (index !== -1) {
+                    data[index][1] = parsedValue;
+                    saveData(data);
+                    renderChart(settings.showSplitLine, settings.colorScheme);
+                }
+            } else {
+                alert('请输入 0 到 10 之间的整数！');
+            }
+        }
+    });
+
+    populateColorSchemeSelect();
+    renderChart(settings.showSplitLine, settings.colorScheme);
+</script>
+</body>
+</html>
