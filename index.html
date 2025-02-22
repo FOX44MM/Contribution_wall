@@ -58,14 +58,20 @@
             margin-left: 8px;
         }
 
+        #colorSchemeSelect {
+            padding: 2px;
+        }
+
         #chart {
             width: 90%;
             height: 300px;
             margin: auto;
         }
-        textarea{
-            font-family: "微软雅黑",serif;
+
+        textarea {
+            font-family: "微软雅黑", serif;
         }
+
         #stats {
             margin-top: 20px;
             font-size: 16px;
@@ -111,11 +117,16 @@
             padding: 10px 20px;
             border-radius: 8px;
         }
+
+        #limit {
+            width: 60px;
+        }
     </style>
 </head>
 <body>
-<h1>贡献图</h1>
+<h1>标题</h1>
 
+<br>
 <div id="controls">
     <button id="addContribution">+1</button>
     <button id="minusContribution">-1</button>
@@ -123,7 +134,8 @@
     <button id="exportData">导出</button>
     <button id="importData">导入</button>
     <input type="file" id="importInput" accept="application/json">
-    <br>
+    <br><br>
+
     <label>
         <input type="checkbox" id="toggleSplitLine">
         <span id="showSplitLineLabel">显示每月分割线</span>
@@ -132,17 +144,22 @@
         <span id="colorSchemeLabel">配色方案:</span>
         <select id="colorSchemeSelect"></select>
     </label>
+    <label>
+        <span>每日上限:</span>
+        <input type="number" min="1" id="limit">
+    </label>
+
 </div>
 <div id="chart"></div>
 <div id="stats"></div>
 
 <div id="descriptionContainer">
-    <textarea id="descriptionText"></textarea>
+    <textarea id="descriptionText" placeholder="在这里写点什么吧！"></textarea>
     <button id="saveDescription">保存描述</button>
 </div>
 
 <script>
-
+    var LIMIT = 10;
     const STORAGE_KEY = 'githubContributionData';   // 存储数据
     const SETTINGS_KEY = 'githubContributionSettings';//    存储设置
     const DESCRIPTION_KEY = 'githubDescription';  // 新增：保存描述的键
@@ -292,7 +309,7 @@
             },
             visualMap: {
                 min: 0,
-                max: 10,
+                max: LIMIT,
                 calculable: true,
                 orient: 'horizontal',
                 left: 'center',
@@ -335,22 +352,19 @@
         const today = new Date().toISOString().split('T')[0];
         const index = data.findIndex(([date]) => date === today);
         if (index !== -1) {
-            data[index][1] = Math.min(data[index][1] + 1, 10);
+            data[index][1] = Math.min(data[index][1] + 1, LIMIT);
             saveData(data);
             renderChart(settings.showSplitLine, settings.colorScheme);
         } else {
             alert('今天不在日期范围内！');
         }
     });
+
     document.getElementById('minusContribution').addEventListener('click', () => {
         const today = new Date().toISOString().split('T')[0];
         const index = data.findIndex(([date]) => date === today);
         if (index !== -1) {
-            if (data[index][1] <= 0){
-                alert("无法执行此操作");
-                return;
-            }
-            data[index][1] = Math.min(data[index][1] - 1, 10);
+            data[index][1] = Math.max(data[index][1] - 1, 0);
             saveData(data);
             renderChart(settings.showSplitLine, settings.colorScheme);
         } else {
@@ -369,12 +383,31 @@
         renderChart(settings.showSplitLine, settings.colorScheme);
     });
 
+    // 监听输入框的变化并更新上限
+    document.getElementById('limit').addEventListener('input', function (event) {
+        LIMIT = event.target.value;
+        // 更新 localStorage 中保存的上限值
+        localStorage.setItem('githubContributionLimit', LIMIT);
+    });
+
+    // 加载上限设置
+    function loadLimitSetting() {
+        const savedLimit = localStorage.getItem('githubContributionLimit');
+        if (savedLimit) {
+            LIMIT = parseInt(savedLimit, 10);
+            document.getElementById('limit').value = LIMIT;
+        }
+    }
+
+
+
+    // 修改贡献时，检查是否超过上限
     chart.on('click', ({value}) => {
         const [date, currentContribution] = value;
-        const newContribution = prompt(`修改 ${date} 的贡献数 (0-10)：`, currentContribution);
+        const newContribution = prompt(`修改 ${date} 的次数 (0-${LIMIT})：`, currentContribution);
         if (newContribution !== null) {
             const parsedValue = parseInt(newContribution, 10);
-            if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 10) {
+            if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= LIMIT) {
                 const index = data.findIndex(([d]) => d === date);
                 if (index !== -1) {
                     data[index][1] = parsedValue;
@@ -382,7 +415,7 @@
                     renderChart(settings.showSplitLine, settings.colorScheme);
                 }
             } else {
-                alert('请输入 0 到 10 之间的整数！');
+                alert(`请输入 0 到 ${LIMIT} 之间的整数！`);
             }
         }
     });
@@ -390,6 +423,7 @@
     populateColorSchemeSelect();
     renderChart(settings.showSplitLine, settings.colorScheme);
     loadDescription();
+    loadLimitSetting();
 </script>
 </body>
 </html>
